@@ -7,7 +7,7 @@ import {
 import {
   ArrowDownLeft, ArrowUpRight, CalendarDays, CircleHelp,
   CreditCard, FileText, Hammer, LayoutDashboard, LogOut, Plus, Search,
-  Wallet, Wrench, X, LoaderCircle, Trash2, RefreshCw,
+  Wallet, Wrench, X, LoaderCircle, Trash2, RefreshCw, Pencil,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,7 +16,7 @@ type Installment = { id: string; installment_number: number; amount: number | st
 type Expense = {
   id: string; description: string; category: string; supplier: string | null;
   total_amount: number | string; purchase_date: string; payment_method: string;
-  payment_source_id: string | null; installments_count: number;
+  payment_source_id: string | null; installments_count: number; notes: string | null;
   payment_sources: { name: string; kind: string } | null;
   expense_installments: Installment[];
 };
@@ -44,7 +44,7 @@ export default function Dashboard({email}:{email:string}) {
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState("");
   const [success,setSuccess] = useState("");
-  const [showExpense,setShowExpense] = useState(false);
+  const [showExpense,setShowExpense] = useState(false);\n  const [editingExpense,setEditingExpense] = useState<Expense|null>(null);
   const [showSource,setShowSource] = useState(false);
   const [description,setDescription] = useState("");
   const [category,setCategory] = useState("Materiais");
@@ -62,7 +62,7 @@ export default function Dashboard({email}:{email:string}) {
   const load = useCallback(async()=>{
     setLoading(true); setError("");
     const [expenseResult,sourceResult] = await Promise.all([
-      supabase.from("expenses").select("id,description,category,supplier,total_amount,purchase_date,payment_method,payment_source_id,installments_count,payment_sources!expenses_payment_source_id_fkey(name,kind),expense_installments!expense_installments_expense_id_fkey(id,installment_number,amount,due_date,status,paid_at)").order("purchase_date",{ascending:false}),
+      supabase.from("expenses").select("id,description,category,supplier,total_amount,purchase_date,payment_method,payment_source_id,installments_count,notes,payment_sources!expenses_payment_source_id_fkey(name,kind),expense_installments!expense_installments_expense_id_fkey(id,installment_number,amount,due_date,status,paid_at)").order("purchase_date",{ascending:false}),
       supabase.from("payment_sources").select("id,name,kind").order("name"),
     ]);
     if(expenseResult.error) setError(expenseResult.error.message);
@@ -135,6 +135,38 @@ export default function Dashboard({email}:{email:string}) {
     setSuccess("Despesa cadastrada e parcelas geradas.");await load();
   }
 
+  function startEditing(expense:Expense){
+    setEditingExpense(expense);
+    setDescription(expense.description);
+    setCategory(expense.category);
+    setSupplier(expense.supplier??"");
+    setPurchaseDate(expense.purchase_date);
+    setSourceId(expense.payment_source_id??"");
+    setNotes(expense.notes??"");
+    setError("");setSuccess("");
+  }
+
+  async function updateExpense(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!editingExpense)return;
+    setSaving(true);setError("");setSuccess("");
+    const {error:updateError}=await supabase.from("expenses").update({
+      description:description.trim(),category,supplier:supplier.trim()||null,
+      purchase_date:purchaseDate,payment_source_id:sourceId||null,notes:notes.trim()||null,
+    }).eq("id",editingExpense.id);
+    setSaving(false);
+    if(updateError){setError(updateError.message);return;}
+    setEditingExpense(null);
+    setSuccess("Despesa atualizada com sucesso.");
+    await load();
+  }
+
+  function closeExpenseEditor(){
+    setEditingExpense(null);
+    setDescription("");setCategory("Materiais");setSupplier("");setPurchaseDate(new Date().toISOString().slice(0,10));
+    setSourceId("");setNotes("");
+  }
+
   async function addSource(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setSaving(true);setError("");
     const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -195,9 +227,9 @@ export default function Dashboard({email}:{email:string}) {
         <div className="panel breakdown"><div className="panel-heading"><div><h2>Por cartão / conta</h2><p>Valor total associado a cada fonte</p></div></div>
           {paymentGroups.length?paymentGroups.map(([name,value])=><div className="bar-row" key={name}><div><span>{name}</span><b>{money(value)}</b></div><div className="bar-track"><span style={{width:(value/Math.max(...paymentGroups.map(x=>x[1]))*100)+"%"}}/></div></div>):<Empty text="Cadastre uma despesa para visualizar a distribuição."/>}
         </div>
-      </section><section className="panel recent-panel"><div className="panel-heading"><div><h2>Despesas recentes</h2><p>Últimos lançamentos registrados</p></div><button className="text-button" onClick={()=>setActive("Despesas")}>Ver todas <ArrowUpRight size={14}/></button></div><ExpenseTable items={expenses.slice(0,6)} onDelete={deleteExpense}/></section></>}
+      </section><section className="panel recent-panel"><div className="panel-heading"><div><h2>Despesas recentes</h2><p>Últimos lançamentos registrados</p></div><button className="text-button" onClick={()=>setActive("Despesas")}>Ver todas <ArrowUpRight size={14}/></button></div><ExpenseTable items={expenses.slice(0,6)} onDelete={deleteExpense} onEdit={startEditing}/></section></>}
 
-      {active==="Despesas"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Despesas cadastradas</h2><p>{filteredExpenses.length} lançamento(s)</p></div><div className="search-box"><Search size={15}/><input placeholder="Buscar descrição, fornecedor..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div><ExpenseTable items={filteredExpenses} onDelete={deleteExpense}/></section>}
+      {active==="Despesas"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Despesas cadastradas</h2><p>{filteredExpenses.length} lançamento(s)</p></div><div className="search-box"><Search size={15}/><input placeholder="Buscar descrição, fornecedor..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div><ExpenseTable items={filteredExpenses} onDelete={deleteExpense} onEdit={startEditing}/></section>}
 
       {active==="Parcelas"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Parcelas e compromissos</h2><p>{filteredInstallments.length} parcela(s) no período selecionado</p></div><div className="search-box"><Search size={15}/><input placeholder="Buscar despesa..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div><div className="table-wrap"><table><thead><tr><th>DESPESA</th><th>PARCELA</th><th>VENCIMENTO</th><th>VALOR</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>{filteredInstallments.sort((a,b)=>a.due_date.localeCompare(b.due_date)).map(i=><tr key={i.id}><td><b>{i.expense.description}</b><small>{i.expense.supplier||i.expense.category}</small></td><td>{i.installment_number}/{i.expense.installments_count}</td><td>{dateBR(i.due_date)}</td><td><b>{money(Number(i.amount))}</b></td><td><span className={"status "+(i.status==="PAID"?"paid":"pending")}>{i.status==="PAID"?"Paga":"Pendente"}</span></td><td><button className={"small-button "+(i.status==="PAID"?"secondary":"mark-paid")} onClick={()=>void toggleInstallment(i)}>{i.status==="PAID"?"Desfazer":"Marcar paga"}</button></td></tr>)}</tbody></table>{!filteredInstallments.length&&<Empty text="Nenhuma parcela encontrada para os filtros selecionados."/>}</div></section>}
 
@@ -222,6 +254,15 @@ export default function Dashboard({email}:{email:string}) {
       <div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowExpense(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving&&<LoaderCircle size={15} className="spin"/>}Salvar despesa</button></div>
     </form></Modal>}
 
+    {editingExpense&&<Modal title="Editar despesa" subtitle="Atualize os dados do lançamento. O valor, meio de pagamento e parcelas permanecem preservados para manter o histórico financeiro." onClose={closeExpenseEditor}><form className="data-form" onSubmit={updateExpense}>
+      <label>Descrição<input required maxLength={200} value={description} onChange={e=>setDescription(e.target.value)} /></label>
+      <div className="form-grid"><label>Categoria<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label><label>Fornecedor<input value={supplier} onChange={e=>setSupplier(e.target.value)} placeholder="Nome do fornecedor"/></label></div>
+      <label>Data da compra<input required type="date" value={purchaseDate} onChange={e=>setPurchaseDate(e.target.value)}/></label>
+      <label>Cartão / conta (opcional)<select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Não informar</option>{sources.map(source=><option key={source.id} value={source.id}>{source.name}</option>)}</select></label>
+      <div className="form-hint">Valor atual: {money(Number(editingExpense.total_amount))} · Meio: {methodLabel(editingExpense.payment_method)} · {editingExpense.installments_count} parcela(s). Para alterar valores ou parcelamento sem perder o histórico de pagamentos, faça um novo lançamento ou solicite um ajuste específico.</div>
+      <label>Observações (opcional)<textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Detalhes adicionais"/></label>
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={closeExpenseEditor}>Cancelar</button><button className="primary-button" disabled={saving}>{saving&&<LoaderCircle size={15} className="spin"/>}Salvar alterações</button></div>
+    </form></Modal>}
     {showSource&&<Modal title="Novo cartão ou conta" subtitle="Use um apelido. Não informe números de cartão ou conta." onClose={()=>setShowSource(false)}><form className="data-form" onSubmit={addSource}><label>Nome / apelido<input required maxLength={80} value={sourceName} onChange={e=>setSourceName(e.target.value)} placeholder="Ex.: Nubank, Itaú, Dinheiro"/></label><label>Tipo<select value={sourceKind} onChange={e=>setSourceKind(e.target.value as Source["kind"])}><option value="CREDIT_CARD">Cartão de crédito</option><option value="BANK_ACCOUNT">Conta bancária</option><option value="CASH">Dinheiro</option><option value="OTHER">Outro</option></select></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowSource(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving?"Salvando...":"Salvar fonte"}</button></div></form></Modal>}
   </div>;
 }
@@ -230,11 +271,11 @@ function Metric({label,value,note,icon,tone=""}:{label:string;value:string;note:
   return <div className="panel metric"><div className="metric-top"><span>{label}</span><i className={tone}>{icon}</i></div><strong>{value}</strong><small>{note}</small></div>;
 }
 function Empty({text}:{text:string}){return <div className="empty-state"><Wallet size={22}/><p>{text}</p></div>;}
-function ExpenseTable({items,onDelete}:{items:Expense[];onDelete:(id:string)=>void}){
+function ExpenseTable({items,onDelete,onEdit}:{items:Expense[];onDelete:(id:string)=>void;onEdit:(expense:Expense)=>void}){
   return <div className="table-wrap"><table><thead><tr><th>DESCRIÇÃO</th><th>CATEGORIA / FORNECEDOR</th><th>DATA</th><th>MEIO DE PAGAMENTO</th><th>VALOR TOTAL</th><th>STATUS</th><th></th></tr></thead><tbody>{items.map(e=>{
     const paid=e.expense_installments.filter(i=>i.status==="PAID").reduce((s,i)=>s+Number(i.amount),0);
     const total=Number(e.total_amount);const status=paid>=total?"Pago":paid>0?"Parcial":"Pendente";
-    return <tr key={e.id}><td><b>{e.description}</b></td><td>{e.category}<small>{e.supplier||"—"}</small></td><td>{dateBR(e.purchase_date)}</td><td>{methodLabel(e.payment_method)}<small>{e.payment_sources?.name??"Cartão / conta não informado"}</small></td><td><b>{money(total)}</b></td><td><span className={"status "+(status==="Pago"?"paid":status==="Parcial"?"partial":"pending")}>{status}</span></td><td><button className="icon-danger" title="Excluir despesa" onClick={()=>onDelete(e.id)}><Trash2 size={15}/></button></td></tr>;
+    return <tr key={e.id}><td><b>{e.description}</b></td><td>{e.category}<small>{e.supplier||"—"}</small></td><td>{dateBR(e.purchase_date)}</td><td>{methodLabel(e.payment_method)}<small>{e.payment_sources?.name??"Cartão / conta não informado"}</small></td><td><b>{money(total)}</b></td><td><span className={"status "+(status==="Pago"?"paid":status==="Parcial"?"partial":"pending")}>{status}</span></td><td><div className="row-actions"><button className="icon-button" title="Editar despesa" aria-label="Editar despesa" onClick={()=>onEdit(e)}><Pencil size={15}/></button><button className="icon-danger" title="Excluir despesa" aria-label="Excluir despesa" onClick={()=>onDelete(e.id)}><Trash2 size={15}/></button></div></td></tr>;
   })}</tbody></table>{!items.length&&<Empty text="Nenhuma despesa cadastrada. Clique em “Nova despesa” para começar."/>}</div>;
 }
 function Modal({title,subtitle,onClose,children}:{title:string;subtitle:string;onClose:()=>void;children:React.ReactNode}){
