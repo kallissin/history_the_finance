@@ -125,7 +125,7 @@ export default function Dashboard({email}:{email:string}) {
       p_payment_source_id:sourceId||null,p_installments_count:installments,
       p_first_due_date:firstDue,p_notes:notes.trim()||null,
     });
-    if(rpcError){setError(rpcError.message);return;}
+    if(rpcError){setSaving(false);setError(rpcError.message);return;}
     if (expenseId && ["PIX","DEBIT","CASH"].includes(method)) {
       const { error: paidError } = await supabase.from("expense_installments").update({status:"PAID",paid_at:new Date().toISOString()}).eq("expense_id",expenseId);
       if (paidError) { setError("Despesa criada, mas não foi possível confirmar o pagamento: "+paidError.message); await load(); setSaving(false); return; }
