@@ -5,7 +5,7 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
-  ArrowDownLeft, ArrowUpRight, CalendarDays, Check, ChevronDown, CircleHelp,
+  ArrowDownLeft, ArrowUpRight, CalendarDays, CircleHelp,
   CreditCard, FileText, Hammer, LayoutDashboard, LogOut, Plus, Search,
   Wallet, Wrench, X, LoaderCircle, Trash2, RefreshCw,
 } from "lucide-react";
@@ -130,7 +130,7 @@ export default function Dashboard({email}:{email:string}) {
       const { error: paidError } = await supabase.from("expense_installments").update({status:"PAID",paid_at:new Date().toISOString()}).eq("expense_id",expenseId);
       if (paidError) { setError("Despesa criada, mas não foi possível confirmar o pagamento: "+paidError.message); await load(); setSaving(false); return; }
     }
-    setShowExpense(false);setDescription("");setSupplier("");setAmount("");setNotes("");setCount("1");setMethod("PIX");setSourceId("");
+    setSaving(false);\n    setShowExpense(false);setDescription("");setSupplier("");setAmount("");setNotes("");setCount("1");setMethod("PIX");setSourceId("");
     setSuccess("Despesa cadastrada e parcelas geradas.");await load();
   }
 
