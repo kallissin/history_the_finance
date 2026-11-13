@@ -115,7 +115,8 @@ export default function Dashboard({email}:{email:string}) {
 
   async function addExpense(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setSaving(true);setError("");setSuccess("");
-    const value=Number(amount.replace(/\./g,"").replace(",","."));
+    const normalizedAmount=amount.trim().replace(/\s/g,"").replace(/\.(?=\d{3}(?:\D|$))/g,"").replace(",",".");
+    const value=Number(normalizedAmount);
     const installments=method==="CREDIT_INSTALLMENTS"?Number(count):1;
     if(!Number.isFinite(value)||value<=0){setError("Informe um valor válido.");setSaving(false);return;}
     const {data:expenseId,error:rpcError}=await supabase.rpc("create_expense_with_installments",{
@@ -124,13 +125,13 @@ export default function Dashboard({email}:{email:string}) {
       p_payment_source_id:sourceId||null,p_installments_count:installments,
       p_first_due_date:firstDue,p_notes:notes.trim()||null,
     });
-    setSaving(false);
     if(rpcError){setError(rpcError.message);return;}
     if (expenseId && ["PIX","DEBIT","CASH"].includes(method)) {
       const { error: paidError } = await supabase.from("expense_installments").update({status:"PAID",paid_at:new Date().toISOString()}).eq("expense_id",expenseId);
       if (paidError) { setError("Despesa criada, mas não foi possível confirmar o pagamento: "+paidError.message); await load(); setSaving(false); return; }
     }
-    setSaving(false);\n    setShowExpense(false);setDescription("");setSupplier("");setAmount("");setNotes("");setCount("1");setMethod("PIX");setSourceId("");
+    setSaving(false);
+    setShowExpense(false);setDescription("");setSupplier("");setAmount("");setNotes("");setCount("1");setMethod("PIX");setSourceId("");
     setSuccess("Despesa cadastrada e parcelas geradas.");await load();
   }
 
