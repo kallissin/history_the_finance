@@ -124,6 +124,13 @@ export default function Dashboard({email}:{email:string}) {
     });
     setSaving(false);
     if(rpcError){setError(rpcError.message);return;}
+    const expenseId = typeof (await supabase.from("expenses").select("id").eq("description", description.trim()).eq("purchase_date", purchaseDate).order("created_at",{ascending:false}).limit(1).maybeSingle()).data?.id === "string"
+      ? (await supabase.from("expenses").select("id").eq("description", description.trim()).eq("purchase_date", purchaseDate).order("created_at",{ascending:false}).limit(1).maybeSingle()).data?.id
+      : null;
+    if (expenseId && ["PIX","DEBIT","CASH"].includes(method)) {
+      const { error: paidError } = await supabase.from("expense_installments").update({status:"PAID",paid_at:new Date().toISOString()}).eq("expense_id",expenseId);
+      if (paidError) { setError("Despesa criada, mas não foi possível confirmar o pagamento: "+paidError.message); await load(); setSaving(false); return; }
+    }
     setShowExpense(false);setDescription("");setSupplier("");setAmount("");setNotes("");setCount("1");setMethod("PIX");setSourceId("");
     setSuccess("Despesa cadastrada e parcelas geradas.");await load();
   }
