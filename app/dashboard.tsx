@@ -137,7 +137,17 @@ export default function Dashboard({email}:{email:string}) {
 
   async function addSource(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setSaving(true);setError("");
-    const {error:insertError}=await supabase.from("payment_sources").insert({name:sourceName.trim(),kind:sourceKind});
+    const {data:{user},error:authError}=await supabase.auth.getUser();
+    if(authError||!user){
+      setSaving(false);
+      setError("Sua sessão expirou. Entre novamente para cadastrar um cartão ou conta.");
+      return;
+    }
+    const {error:insertError}=await supabase.from("payment_sources").insert({
+      user_id:user.id,
+      name:sourceName.trim(),
+      kind:sourceKind,
+    });
     setSaving(false);
     if(insertError){setError(insertError.message);return;}
     setShowSource(false);setSourceName("");setSuccess("Cartão/conta cadastrado.");await load();
