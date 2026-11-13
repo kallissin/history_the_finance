@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+:root { color-scheme: light; --ink: #17231f; --muted: #78827d; --line: #e9eeeb; --green: #237b59; --mint: #e9f4ee; --canvas: #f7f9f7; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+.sidebar { width: 244px; min-height: 100vh; background: #fff; border-right: 1px solid var(--line); padding: 26px 18px; position: fixed; inset: 0 auto 0 0; }
+.main { margin-left: 244px; padding: 34px 42px 56px; max-width: 1600px; }
+.nav-item { display:flex; align-items:center; gap:12px; width:100%; border:0; background:transparent; color:#718078; padding:12px 13px; border-radius:10px; text-align:left; font-size:14px; margin:3px 0; }
+.nav-item.active { color:#216b4d; background:#eaf4ee; font-weight:600; }
+.panel { background:white; border:1px solid var(--line); border-radius:16px; }
+.metric { padding:20px 21px; min-height:126px; }
+.metric-label { color:#7c8982; font-size:13px; }
+.metric-value { font-size:27px; letter-spacing:-.8px; font-weight:700; margin-top:12px; }
+.metric-note { color:#8b9690; font-size:12px; margin-top:7px; }
+.pill { border-radius:999px; padding:5px 9px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; }
+@media(max-width:1000px){ .sidebar{width:76px;padding:24px 10px}.sidebar .brand-name,.sidebar .nav-label,.sidebar .nav-item span{display:none}.sidebar .nav-item{justify-content:center}.main{margin-left:76px;padding:28px 22px} }
+@media(max-width:640px){ .sidebar{display:none}.main{margin:0;padding:22px 15px 40px}.metric-value{font-size:23px} }
