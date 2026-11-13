@@ -116,7 +116,7 @@ export default function Dashboard({email}:{email:string}) {
     const value=Number(amount.replace(/\./g,"").replace(",","."));
     const installments=method==="CREDIT_INSTALLMENTS"?Number(count):1;
     if(!Number.isFinite(value)||value<=0){setError("Informe um valor válido.");setSaving(false);return;}
-    const {error:rpcError}=await supabase.rpc("create_expense_with_installments",{
+    const {data:expenseId,error:rpcError}=await supabase.rpc("create_expense_with_installments",{
       p_description:description.trim(),p_category:category,p_supplier:supplier.trim()||null,
       p_total_amount:value,p_purchase_date:purchaseDate,p_payment_method:method,
       p_payment_source_id:sourceId||null,p_installments_count:installments,
@@ -124,9 +124,6 @@ export default function Dashboard({email}:{email:string}) {
     });
     setSaving(false);
     if(rpcError){setError(rpcError.message);return;}
-    const expenseId = typeof (await supabase.from("expenses").select("id").eq("description", description.trim()).eq("purchase_date", purchaseDate).order("created_at",{ascending:false}).limit(1).maybeSingle()).data?.id === "string"
-      ? (await supabase.from("expenses").select("id").eq("description", description.trim()).eq("purchase_date", purchaseDate).order("created_at",{ascending:false}).limit(1).maybeSingle()).data?.id
-      : null;
     if (expenseId && ["PIX","DEBIT","CASH"].includes(method)) {
       const { error: paidError } = await supabase.from("expense_installments").update({status:"PAID",paid_at:new Date().toISOString()}).eq("expense_id",expenseId);
       if (paidError) { setError("Despesa criada, mas não foi possível confirmar o pagamento: "+paidError.message); await load(); setSaving(false); return; }
