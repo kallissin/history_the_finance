@@ -7,7 +7,7 @@ import {
 import {
   ArrowDownLeft, ArrowUpRight, CalendarDays, CircleHelp,
   CreditCard, FileText, Hammer, LayoutDashboard, LogOut, Plus, Search,
-  Wallet, Wrench, X, LoaderCircle, Trash2, RefreshCw, Pencil,
+  Wallet, Wrench, X, LoaderCircle, Trash2, RefreshCw, Pencil, Eye,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -46,6 +46,7 @@ export default function Dashboard({email}:{email:string}) {
   const [success,setSuccess] = useState("");
   const [showExpense,setShowExpense] = useState(false);
   const [editingExpense,setEditingExpense] = useState<Expense|null>(null);
+  const [detailsExpenseId,setDetailsExpenseId] = useState<string|null>(null);
   const [showSource,setShowSource] = useState(false);
   const [description,setDescription] = useState("");
   const [category,setCategory] = useState("Materiais");
@@ -75,6 +76,7 @@ export default function Dashboard({email}:{email:string}) {
 
   useEffect(()=>{ void load(); },[load]);
 
+  const detailsExpense = expenses.find(e=>e.id===detailsExpenseId) ?? null;
   const allInstallments = useMemo(()=>expenses.flatMap(e=>e.expense_installments.map(i=>({...i,expense:e}))),[expenses]);
   const periodExpenses = expenses.filter(e=>(month==="all"||monthKey(e.purchase_date)===month)&&(sourceFilter==="all"||e.payment_source_id===sourceFilter));
   const periodInstallments = allInstallments.filter(i=>(month==="all"||monthKey(i.status==="PAID"?(i.paid_at?.slice(0,10)??i.due_date):i.due_date)===month)&&(sourceFilter==="all"||i.expense.payment_source_id===sourceFilter));
@@ -228,9 +230,9 @@ export default function Dashboard({email}:{email:string}) {
         <div className="panel breakdown"><div className="panel-heading"><div><h2>Por cartão / conta</h2><p>Valor total associado a cada fonte</p></div></div>
           {paymentGroups.length?paymentGroups.map(([name,value])=><div className="bar-row" key={name}><div><span>{name}</span><b>{money(value)}</b></div><div className="bar-track"><span style={{width:(value/Math.max(...paymentGroups.map(x=>x[1]))*100)+"%"}}/></div></div>):<Empty text="Cadastre uma despesa para visualizar a distribuição."/>}
         </div>
-      </section><section className="panel recent-panel"><div className="panel-heading"><div><h2>Despesas recentes</h2><p>Últimos lançamentos registrados</p></div><button className="text-button" onClick={()=>setActive("Despesas")}>Ver todas <ArrowUpRight size={14}/></button></div><ExpenseTable items={expenses.slice(0,6)} onDelete={deleteExpense} onEdit={startEditing}/></section></>}
+      </section><section className="panel recent-panel"><div className="panel-heading"><div><h2>Despesas recentes</h2><p>Últimos lançamentos registrados</p></div><button className="text-button" onClick={()=>setActive("Despesas")}>Ver todas <ArrowUpRight size={14}/></button></div><ExpenseTable items={expenses.slice(0,6)} onDelete={deleteExpense} onEdit={startEditing} onDetails={e=>setDetailsExpenseId(e.id)}/></section></>}
 
-      {active==="Despesas"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Despesas cadastradas</h2><p>{filteredExpenses.length} lançamento(s)</p></div><div className="search-box"><Search size={15}/><input placeholder="Buscar descrição, fornecedor..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div><ExpenseTable items={filteredExpenses} onDelete={deleteExpense} onEdit={startEditing}/></section>}
+      {active==="Despesas"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Despesas cadastradas</h2><p>{filteredExpenses.length} lançamento(s)</p></div><div className="search-box"><Search size={15}/><input placeholder="Buscar descrição, fornecedor..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div><ExpenseTable items={filteredExpenses} onDelete={deleteExpense} onEdit={startEditing} onDetails={e=>setDetailsExpenseId(e.id)}/></section>}
 
       {active==="Parcelas"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Parcelas e compromissos</h2><p>{filteredInstallments.length} parcela(s) no período selecionado</p></div><div className="search-box"><Search size={15}/><input placeholder="Buscar despesa..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div><div className="table-wrap"><table><thead><tr><th>DESPESA</th><th>PARCELA</th><th>VENCIMENTO</th><th>VALOR</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>{filteredInstallments.sort((a,b)=>a.due_date.localeCompare(b.due_date)).map(i=><tr key={i.id}><td><b>{i.expense.description}</b><small>{i.expense.supplier||i.expense.category}</small></td><td>{i.installment_number}/{i.expense.installments_count}</td><td>{dateBR(i.due_date)}</td><td><b>{money(Number(i.amount))}</b></td><td><span className={"status "+(i.status==="PAID"?"paid":"pending")}>{i.status==="PAID"?"Paga":"Pendente"}</span></td><td><button className={"small-button "+(i.status==="PAID"?"secondary":"mark-paid")} onClick={()=>void toggleInstallment(i)}>{i.status==="PAID"?"Desfazer":"Marcar paga"}</button></td></tr>)}</tbody></table>{!filteredInstallments.length&&<Empty text="Nenhuma parcela encontrada para os filtros selecionados."/>}</div></section>}
 
@@ -255,6 +257,7 @@ export default function Dashboard({email}:{email:string}) {
       <div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setShowExpense(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving&&<LoaderCircle size={15} className="spin"/>}Salvar despesa</button></div>
     </form></Modal>}
 
+    {detailsExpense&&<Modal title="Detalhes da despesa" subtitle="Resumo financeiro, histórico e próximos vencimentos." onClose={()=>setDetailsExpenseId(null)}><ExpenseDetails expense={detailsExpense} onToggle={toggleInstallment}/></Modal>}
     {editingExpense&&<Modal title="Editar despesa" subtitle="Atualize os dados do lançamento. O valor, meio de pagamento e parcelas permanecem preservados para manter o histórico financeiro." onClose={closeExpenseEditor}><form className="data-form" onSubmit={updateExpense}>
       <label>Descrição<input required maxLength={200} value={description} onChange={e=>setDescription(e.target.value)} /></label>
       <div className="form-grid"><label>Categoria<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label><label>Fornecedor<input value={supplier} onChange={e=>setSupplier(e.target.value)} placeholder="Nome do fornecedor"/></label></div>
@@ -268,15 +271,38 @@ export default function Dashboard({email}:{email:string}) {
   </div>;
 }
 
+function ExpenseDetails({expense,onToggle}:{expense:Expense;onToggle:(item:Installment)=>void}){
+  const installments=[...expense.expense_installments].sort((a,b)=>a.installment_number-b.installment_number);
+  const paid=installments.filter(i=>i.status==="PAID");
+  const pending=installments.filter(i=>i.status==="PENDING").sort((a,b)=>a.due_date.localeCompare(b.due_date));
+  const paidValue=paid.reduce((sum,i)=>sum+Number(i.amount),0);
+  const pendingValue=pending.reduce((sum,i)=>sum+Number(i.amount),0);
+  const next=pending[0];
+  const progress=installments.length?Math.round(paid.length/installments.length*100):0;
+  return <div className="expense-details">
+    <div className="detail-title"><div><h3>{expense.description}</h3><p>{expense.category}{expense.supplier?" · "+expense.supplier:""}</p></div><span className={"status "+(pending.length===0?"paid":paid.length?"partial":"pending")}>{pending.length===0?"Quitada":paid.length?"Em andamento":"Pendente"}</span></div>
+    <div className="detail-total"><span>Valor total da despesa</span><strong>{money(Number(expense.total_amount))}</strong></div>
+    <div className="detail-progress-heading"><b>Parcelas pagas</b><strong>{paid.length}/{installments.length}</strong></div>
+    <div className="detail-progress"><span style={{width:progress+"%"}}/></div>
+    <div className="detail-stats"><div><small>Já pago</small><b>{money(paidValue)}</b></div><div><small>Em aberto</small><b>{money(pendingValue)}</b></div></div>
+    <div className="detail-next"><CalendarDays size={18}/><div><small>Próximo vencimento</small><b>{next?dateBR(next.due_date)+" · "+money(Number(next.amount)):"Nenhuma parcela pendente"}</b></div></div>
+    <div className="detail-meta"><span><small>Compra</small><b>{dateBR(expense.purchase_date)}</b></span><span><small>Meio de pagamento</small><b>{methodLabel(expense.payment_method)}</b></span><span><small>Cartão / conta</small><b>{expense.payment_sources?.name??"Não informado"}</b></span></div>
+    {expense.notes&&<div className="detail-notes"><b>Observações</b><p>{expense.notes}</p></div>}
+    <div className="detail-installments"><h4>Histórico de parcelas</h4>
+      {installments.map(item=><div className="detail-installment" key={item.id}><div><b>Parcela {item.installment_number}/{installments.length}</b><small>Vencimento: {dateBR(item.due_date)}{item.status==="PAID"&&item.paid_at?" · Paga em "+dateBR(item.paid_at.slice(0,10)):""}</small></div><div className="detail-installment-action"><b>{money(Number(item.amount))}</b><button className={"small-button "+(item.status==="PAID"?"secondary":"mark-paid")} onClick={()=>onToggle(item)}>{item.status==="PAID"?"Desfazer":"Marcar paga"}</button></div></div>)}
+    </div>
+  </div>;
+}
+
 function Metric({label,value,note,icon,tone=""}:{label:string;value:string;note:string;icon:React.ReactNode;tone?:string}){
   return <div className="panel metric"><div className="metric-top"><span>{label}</span><i className={tone}>{icon}</i></div><strong>{value}</strong><small>{note}</small></div>;
 }
 function Empty({text}:{text:string}){return <div className="empty-state"><Wallet size={22}/><p>{text}</p></div>;}
-function ExpenseTable({items,onDelete,onEdit}:{items:Expense[];onDelete:(id:string)=>void;onEdit:(expense:Expense)=>void}){
+function ExpenseTable({items,onDelete,onEdit,onDetails}:{items:Expense[];onDelete:(id:string)=>void;onEdit:(expense:Expense)=>void;onDetails:(expense:Expense)=>void}){
   return <div className="table-wrap"><table><thead><tr><th>DESCRIÇÃO</th><th>CATEGORIA / FORNECEDOR</th><th>DATA</th><th>MEIO DE PAGAMENTO</th><th>VALOR TOTAL</th><th>STATUS</th><th></th></tr></thead><tbody>{items.map(e=>{
     const paid=e.expense_installments.filter(i=>i.status==="PAID").reduce((s,i)=>s+Number(i.amount),0);
     const total=Number(e.total_amount);const status=paid>=total?"Pago":paid>0?"Parcial":"Pendente";
-    return <tr key={e.id}><td><b>{e.description}</b></td><td>{e.category}<small>{e.supplier||"—"}</small></td><td>{dateBR(e.purchase_date)}</td><td>{methodLabel(e.payment_method)}<small>{e.payment_sources?.name??"Cartão / conta não informado"}</small></td><td><b>{money(total)}</b></td><td><span className={"status "+(status==="Pago"?"paid":status==="Parcial"?"partial":"pending")}>{status}</span></td><td><div className="row-actions"><button className="icon-button" title="Editar despesa" aria-label="Editar despesa" onClick={()=>onEdit(e)}><Pencil size={15}/></button><button className="icon-danger" title="Excluir despesa" aria-label="Excluir despesa" onClick={()=>onDelete(e.id)}><Trash2 size={15}/></button></div></td></tr>;
+    return <tr key={e.id}><td><b>{e.description}</b></td><td>{e.category}<small>{e.supplier||"—"}</small></td><td>{dateBR(e.purchase_date)}</td><td>{methodLabel(e.payment_method)}<small>{e.payment_sources?.name??"Cartão / conta não informado"}</small></td><td><b>{money(total)}</b></td><td><span className={"status "+(status==="Pago"?"paid":status==="Parcial"?"partial":"pending")}>{status}</span></td><td><div className="row-actions"><button className="icon-button" title="Ver detalhes" aria-label="Ver detalhes" onClick={()=>onDetails(e)}><Eye size={15}/></button><button className="icon-button" title="Editar despesa" aria-label="Editar despesa" onClick={()=>onEdit(e)}><Pencil size={15}/></button><button className="icon-danger" title="Excluir despesa" aria-label="Excluir despesa" onClick={()=>onDelete(e.id)}><Trash2 size={15}/></button></div></td></tr>;
   })}</tbody></table>{!items.length&&<Empty text="Nenhuma despesa cadastrada. Clique em “Nova despesa” para começar."/>}</div>;
 }
 function Modal({title,subtitle,onClose,children}:{title:string;subtitle:string;onClose:()=>void;children:React.ReactNode}){
