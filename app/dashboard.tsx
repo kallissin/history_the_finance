@@ -7,7 +7,7 @@ import {
 import {
   ArrowDownLeft, ArrowUpRight, CalendarDays, CircleHelp,
   CreditCard, FileText, Hammer, LayoutDashboard, LogOut, Plus, Search,
-  Wallet, Wrench, X, LoaderCircle, Trash2, RefreshCw, Pencil, Eye,
+  Wallet, Wrench, X, LoaderCircle, Trash2, RefreshCw, Pencil, Eye, Download, DatabaseBackup,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -203,8 +203,42 @@ export default function Dashboard({email}:{email:string}) {
     setSuccess("Despesa excluída.");await load();
   }
 
+  async function exportBackup(){
+    setSaving(true);setError("");setSuccess("");
+    const {data:{user},error:authError}=await supabase.auth.getUser();
+    if(authError||!user){setSaving(false);setError("Sua sessão expirou. Entre novamente para exportar seus dados.");return;}
+    const [sourceResult,expenseResult,installmentResult]=await Promise.all([
+      supabase.from("payment_sources").select("id,name,kind,created_at").order("created_at",{ascending:true}),
+      supabase.from("expenses").select("id,description,category,supplier,total_amount,purchase_date,payment_method,payment_source_id,installments_count,first_due_date,notes,created_at,updated_at").order("purchase_date",{ascending:true}),
+      supabase.from("expense_installments").select("id,expense_id,installment_number,amount,due_date,status,paid_at,created_at").order("due_date",{ascending:true}),
+    ]);
+    const queryError=sourceResult.error||expenseResult.error||installmentResult.error;
+    if(queryError){setSaving(false);setError("Não foi possível gerar o backup: "+queryError.message);return;}
+    const exportedAt=new Date();
+    const backup={
+      format:"obraemdia-backup",
+      version:1,
+      exported_at:exportedAt.toISOString(),
+      account:user.email??null,
+      data:{
+        payment_sources:sourceResult.data??[],
+        expenses:expenseResult.data??[],
+        expense_installments:installmentResult.data??[],
+      },
+    };
+    const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.href=url;
+    link.download="obraemdia-backup-"+exportedAt.toISOString().slice(0,10)+".json";
+    document.body.appendChild(link);link.click();link.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setSaving(false);
+    setSuccess("Backup exportado. Guarde o arquivo em um local seguro, fora deste sistema.");
+  }
+
   async function signOut(){await supabase.auth.signOut();window.location.assign("/login");}
-  const nav=[["Visão geral",LayoutDashboard],["Despesas",FileText],["Parcelas",CalendarDays],["Cartões e contas",CreditCard],["Categorias",Hammer]] as const;
+  const nav=[["Visão geral",LayoutDashboard],["Despesas",FileText],["Parcelas",CalendarDays],["Cartões e contas",CreditCard],["Categorias",Hammer],["Backup e dados",DatabaseBackup]] as const;
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -239,6 +273,13 @@ export default function Dashboard({email}:{email:string}) {
       {active==="Cartões e contas"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Cartões e contas</h2><p>Cadastre apenas apelidos; não armazenamos números ou dados bancários.</p></div><button className="primary-button" onClick={()=>setShowSource(true)}><Plus size={16}/> Nova fonte</button></div><div className="source-grid">{sources.map(s=><div className="source-card" key={s.id}><span className="source-icon"><CreditCard size={19}/></span><div><b>{s.name}</b><small>{s.kind==="CREDIT_CARD"?"Cartão de crédito":s.kind==="BANK_ACCOUNT"?"Conta bancária":s.kind==="CASH"?"Dinheiro":"Outro"}</small></div><strong>{money(expenses.filter(e=>e.payment_source_id===s.id).reduce((sum,e)=>sum+Number(e.total_amount),0))}</strong></div>)}{!sources.length&&<Empty text="Nenhum cartão ou conta cadastrado. Adicione um apelido para associar às despesas."/>}</div></section>}
 
       {active==="Categorias"&&<section className="panel content-panel"><div className="panel-heading"><div><h2>Gastos por categoria</h2><p>Distribuição do custo total cadastrado</p></div></div><div className="category-list">{categoriesSummary.map(([name,value])=><div className="category-row" key={name}><div><b>{name}</b><span>{money(value)}</span></div><div className="bar-track"><span style={{width:(value/Math.max(...categoriesSummary.map(x=>x[1]))*100)+"%"}}/></div></div>)}{!categoriesSummary.length&&<Empty text="As categorias aparecerão aqui conforme as despesas forem cadastradas."/>}</div></section>}
+
+      {active==="Backup e dados"&&<section className="panel content-panel backup-panel">
+        <div className="panel-heading"><div><h2>Backup dos seus dados</h2><p>Exporte uma cópia completa dos registros da sua conta.</p></div><span className="source-icon"><DatabaseBackup size={20}/></span></div>
+        <div className="backup-summary"><div><b>O que será incluído</b><p>Despesas, parcelas, cartões e contas (somente apelidos), datas, valores, status e observações.</p></div><div><b>Privacidade</b><p>A exportação consulta o banco com sua sessão autenticada e respeita as permissões da sua conta. Nenhuma credencial ou dado sensível de cartão/banco é incluído.</p></div></div>
+        <div className="backup-actions"><button className="primary-button" onClick={()=>void exportBackup()} disabled={saving}>{saving?<LoaderCircle size={16} className="spin"/>:<Download size={16}/>} Baixar backup agora</button><span>Formato JSON · cópia dos dados no momento da exportação</span></div>
+        <div className="form-hint backup-hint"><b>Sobre o backup automático semanal</b><br/>Ele ainda não está ativado. No plano gratuito, o Supabase não oferece backups automáticos do banco; para manter uma cópia semanal fora do Supabase, precisamos configurar um destino externo seguro e autorizar suas credenciais. Não vou habilitar serviços pagos nem guardar segredos no navegador.</div>
+      </section>}
 
       <footer className="footer-note"><CircleHelp size={14}/> Todos os valores são carregados diretamente do banco de dados da sua conta.</footer>
       {loading&&<div className="loading-line"><LoaderCircle size={16} className="spin"/> Atualizando dados...</div>}
