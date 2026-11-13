@@ -78,6 +78,11 @@ export default function Dashboard({email}:{email:string}) {
   const total = expenses.reduce((sum,e)=>sum+Number(e.total_amount),0);
   const paid = allInstallments.filter(i=>i.status==="PAID").reduce((sum,i)=>sum+Number(i.amount),0);
   const pending = allInstallments.filter(i=>i.status==="PENDING").reduce((sum,i)=>sum+Number(i.amount),0);
+  const periodExpenses = expenses.filter(e=>(month==="all"||monthKey(e.purchase_date)===month)&&(sourceFilter==="all"||e.payment_source_id===sourceFilter));
+  const periodInstallments = allInstallments.filter(i=>(month==="all"||monthKey(i.due_date)===month)&&(sourceFilter==="all"||i.expense.payment_source_id===sourceFilter));
+  const periodTotal = periodExpenses.reduce((sum,e)=>sum+Number(e.total_amount),0);
+  const periodPaid = periodInstallments.filter(i=>i.status==="PAID").reduce((sum,i)=>sum+Number(i.amount),0);
+  const periodPending = periodInstallments.filter(i=>i.status==="PENDING").reduce((sum,i)=>sum+Number(i.amount),0);
   const thisMonth = new Date().toISOString().slice(0,7);
   const monthlyPaid = allInstallments.filter(i=>i.status==="PAID"&&monthKey(i.paid_at?.slice(0,10)??i.due_date)===thisMonth).reduce((s,i)=>s+Number(i.amount),0);
 
@@ -94,22 +99,22 @@ export default function Dashboard({email}:{email:string}) {
 
   const chartData = useMemo(()=>{
     const map = new Map<string,number>();
-    allInstallments.filter(i=>i.status==="PAID").forEach(i=>{
+    periodInstallments.filter(i=>i.status==="PAID").forEach(i=>{
       const key=monthKey((i.paid_at??i.due_date).slice(0,10));
       map.set(key,(map.get(key)??0)+Number(i.amount));
     });
     return [...map.entries()].sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([key,value])=>({month:monthName(key),value}));
-  },[allInstallments]);
+  },[periodInstallments]);
   const paymentGroups = useMemo(()=>{
     const map = new Map<string,number>();
-    expenses.forEach(e=>{const label=e.payment_sources?.name??methodLabel(e.payment_method);map.set(label,(map.get(label)??0)+Number(e.total_amount));});
+    periodExpenses.forEach(e=>{const label=e.payment_sources?.name??methodLabel(e.payment_method);map.set(label,(map.get(label)??0)+Number(e.total_amount));});
     return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
-  },[expenses]);
+  },[periodExpenses]);
   const categoriesSummary = useMemo(()=>{
     const map=new Map<string,number>();
-    expenses.forEach(e=>map.set(e.category,(map.get(e.category)??0)+Number(e.total_amount)));
+    periodExpenses.forEach(e=>map.set(e.category,(map.get(e.category)??0)+Number(e.total_amount)));
     return [...map.entries()].sort((a,b)=>b[1]-a[1]);
-  },[expenses]);
+  },[periodExpenses]);
 
   async function addExpense(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setSaving(true);setError("");setSuccess("");
@@ -171,9 +176,9 @@ export default function Dashboard({email}:{email:string}) {
       <div className="filters"><div><label htmlFor="month-filter">Período</label><input id="month-filter" type="month" value={month==="all"?"":month} onChange={e=>setMonth(e.target.value||"all")}/><button className="text-button" onClick={()=>setMonth("all")}>Todos</button></div><div><label htmlFor="source-filter">Cartão / conta</label><select id="source-filter" value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="all">Todas as fontes</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div></div>
 
       {active==="Visão geral"&&<><section className="metrics">
-        <Metric label="Custo total da obra" value={money(total)} note="Compras e serviços cadastrados" icon={<Hammer size={18}/>}/>
-        <Metric label="Total já pago" value={money(paid)} note="Desembolso confirmado por parcela" icon={<ArrowDownLeft size={18}/>} tone="green"/>
-        <Metric label="Compromissos em aberto" value={money(pending)} note="Parcelas e pagamentos futuros" icon={<CalendarDays size={18}/>} tone="amber"/>
+        <Metric label="Custo total da obra" value={money(periodTotal)} note="Compras e serviços cadastrados" icon={<Hammer size={18}/>}/>
+        <Metric label="Total já pago" value={money(periodPaid)} note="Desembolso confirmado por parcela" icon={<ArrowDownLeft size={18}/>} tone="green"/>
+        <Metric label="Compromissos em aberto" value={money(periodPending)} note="Parcelas e pagamentos futuros" icon={<CalendarDays size={18}/>} tone="amber"/>
         <Metric label="Pago neste mês" value={money(monthlyPaid)} note="Baixas realizadas no mês atual" icon={<Wallet size={18}/>} tone="blue"/>
       </section><section className="overview-grid">
         <div className="panel chart-panel"><div className="panel-heading"><div><h2>Desembolso mensal</h2><p>Valores efetivamente pagos por mês</p></div><span className="tag">Últimos meses</span></div>
