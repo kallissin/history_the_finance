@@ -1,0 +1,2 @@
+create index if not exists expenses_payment_source_owner_idx on public.expenses(payment_source_id, user_id);
+create index if not exists installments_expense_owner_idx on public.expense_installments(expense_id, user_id);
