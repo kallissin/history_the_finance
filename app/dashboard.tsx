@@ -76,7 +76,7 @@ export default function Dashboard({email}:{email:string}) {
 
   const allInstallments = useMemo(()=>expenses.flatMap(e=>e.expense_installments.map(i=>({...i,expense:e}))),[expenses]);
   const periodExpenses = expenses.filter(e=>(month==="all"||monthKey(e.purchase_date)===month)&&(sourceFilter==="all"||e.payment_source_id===sourceFilter));
-  const periodInstallments = allInstallments.filter(i=>(month==="all"||monthKey(i.due_date)===month)&&(sourceFilter==="all"||i.expense.payment_source_id===sourceFilter));
+  const periodInstallments = allInstallments.filter(i=>(month==="all"||monthKey(i.status==="PAID"?(i.paid_at?.slice(0,10)??i.due_date):i.due_date)===month)&&(sourceFilter==="all"||i.expense.payment_source_id===sourceFilter));
   const periodTotal = periodExpenses.reduce((sum,e)=>sum+Number(e.total_amount),0);
   const periodPaid = periodInstallments.filter(i=>i.status==="PAID").reduce((sum,i)=>sum+Number(i.amount),0);
   const periodPending = periodInstallments.filter(i=>i.status==="PENDING").reduce((sum,i)=>sum+Number(i.amount),0);
