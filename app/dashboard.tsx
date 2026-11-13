@@ -213,7 +213,7 @@ export default function Dashboard({email}:{email:string}) {
       <label>Descrição<input required maxLength={200} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Ex.: Material hidráulico"/></label>
       <div className="form-grid"><label>Categoria<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label><label>Fornecedor<input value={supplier} onChange={e=>setSupplier(e.target.value)} placeholder="Nome do fornecedor"/></label></div>
       <div className="form-grid"><label>Valor total (R$)<input required inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0,00"/></label><label>Data da compra<input required type="date" value={purchaseDate} onChange={e=>setPurchaseDate(e.target.value)}/></label></div>
-      <label>Forma de pagamento<select value={method} onChange={e=>{setMethod(e.target.value);if(e.target.value!=="CREDIT_INSTALLMENTS")setCount("1");}}>{methods.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+      <label>Meio de pagamento<select required value={method} onChange={e=>{setMethod(e.target.value);if(e.target.value!=="CREDIT_INSTALLMENTS")setCount("1");}}>{methods.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
       <label>Cartão / conta (opcional)<select value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">Não informar</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
       {method==="CREDIT_INSTALLMENTS"&&<div className="form-grid"><label>Número de parcelas<input type="number" min="2" max="120" required value={count} onChange={e=>setCount(e.target.value)}/></label><label>Vencimento da 1ª parcela<input type="date" required value={firstDue} onChange={e=>setFirstDue(e.target.value)}/></label></div>}
       {method!=="CREDIT_INSTALLMENTS"&&<label>Data do pagamento / vencimento<input type="date" required value={firstDue} onChange={e=>setFirstDue(e.target.value)}/></label>}
@@ -231,10 +231,10 @@ function Metric({label,value,note,icon,tone=""}:{label:string;value:string;note:
 }
 function Empty({text}:{text:string}){return <div className="empty-state"><Wallet size={22}/><p>{text}</p></div>;}
 function ExpenseTable({items,onDelete}:{items:Expense[];onDelete:(id:string)=>void}){
-  return <div className="table-wrap"><table><thead><tr><th>DESCRIÇÃO</th><th>CATEGORIA / FORNECEDOR</th><th>DATA</th><th>PAGAMENTO</th><th>VALOR TOTAL</th><th>STATUS</th><th></th></tr></thead><tbody>{items.map(e=>{
+  return <div className="table-wrap"><table><thead><tr><th>DESCRIÇÃO</th><th>CATEGORIA / FORNECEDOR</th><th>DATA</th><th>MEIO DE PAGAMENTO</th><th>VALOR TOTAL</th><th>STATUS</th><th></th></tr></thead><tbody>{items.map(e=>{
     const paid=e.expense_installments.filter(i=>i.status==="PAID").reduce((s,i)=>s+Number(i.amount),0);
     const total=Number(e.total_amount);const status=paid>=total?"Pago":paid>0?"Parcial":"Pendente";
-    return <tr key={e.id}><td><b>{e.description}</b></td><td>{e.category}<small>{e.supplier||"—"}</small></td><td>{dateBR(e.purchase_date)}</td><td>{e.payment_sources?.name??methodLabel(e.payment_method)}</td><td><b>{money(total)}</b></td><td><span className={"status "+(status==="Pago"?"paid":status==="Parcial"?"partial":"pending")}>{status}</span></td><td><button className="icon-danger" title="Excluir despesa" onClick={()=>onDelete(e.id)}><Trash2 size={15}/></button></td></tr>;
+    return <tr key={e.id}><td><b>{e.description}</b></td><td>{e.category}<small>{e.supplier||"—"}</small></td><td>{dateBR(e.purchase_date)}</td><td>{methodLabel(e.payment_method)}<small>{e.payment_sources?.name??"Cartão / conta não informado"}</small></td><td><b>{money(total)}</b></td><td><span className={"status "+(status==="Pago"?"paid":status==="Parcial"?"partial":"pending")}>{status}</span></td><td><button className="icon-danger" title="Excluir despesa" onClick={()=>onDelete(e.id)}><Trash2 size={15}/></button></td></tr>;
   })}</tbody></table>{!items.length&&<Empty text="Nenhuma despesa cadastrada. Clique em “Nova despesa” para começar."/>}</div>;
 }
 function Modal({title,subtitle,onClose,children}:{title:string;subtitle:string;onClose:()=>void;children:React.ReactNode}){
