@@ -62,7 +62,7 @@ export default function Dashboard({email}:{email:string}) {
   const load = useCallback(async()=>{
     setLoading(true); setError("");
     const [expenseResult,sourceResult] = await Promise.all([
-      supabase.from("expenses").select("id,description,category,supplier,total_amount,purchase_date,payment_method,payment_source_id,installments_count,payment_sources(name,kind),expense_installments(id,installment_number,amount,due_date,status,paid_at)").order("purchase_date",{ascending:false}),
+      supabase.from("expenses").select("id,description,category,supplier,total_amount,purchase_date,payment_method,payment_source_id,installments_count,payment_sources!expenses_payment_source_id_fkey(name,kind),expense_installments!expense_installments_expense_id_fkey(id,installment_number,amount,due_date,status,paid_at)").order("purchase_date",{ascending:false}),
       supabase.from("payment_sources").select("id,name,kind").order("name"),
     ]);
     if(expenseResult.error) setError(expenseResult.error.message);
