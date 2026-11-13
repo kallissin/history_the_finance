@@ -75,16 +75,13 @@ export default function Dashboard({email}:{email:string}) {
   useEffect(()=>{ void load(); },[load]);
 
   const allInstallments = useMemo(()=>expenses.flatMap(e=>e.expense_installments.map(i=>({...i,expense:e}))),[expenses]);
-  const total = expenses.reduce((sum,e)=>sum+Number(e.total_amount),0);
-  const paid = allInstallments.filter(i=>i.status==="PAID").reduce((sum,i)=>sum+Number(i.amount),0);
-  const pending = allInstallments.filter(i=>i.status==="PENDING").reduce((sum,i)=>sum+Number(i.amount),0);
   const periodExpenses = expenses.filter(e=>(month==="all"||monthKey(e.purchase_date)===month)&&(sourceFilter==="all"||e.payment_source_id===sourceFilter));
   const periodInstallments = allInstallments.filter(i=>(month==="all"||monthKey(i.due_date)===month)&&(sourceFilter==="all"||i.expense.payment_source_id===sourceFilter));
   const periodTotal = periodExpenses.reduce((sum,e)=>sum+Number(e.total_amount),0);
   const periodPaid = periodInstallments.filter(i=>i.status==="PAID").reduce((sum,i)=>sum+Number(i.amount),0);
   const periodPending = periodInstallments.filter(i=>i.status==="PENDING").reduce((sum,i)=>sum+Number(i.amount),0);
   const thisMonth = new Date().toISOString().slice(0,7);
-  const monthlyPaid = allInstallments.filter(i=>i.status==="PAID"&&monthKey(i.paid_at?.slice(0,10)??i.due_date)===thisMonth).reduce((s,i)=>s+Number(i.amount),0);
+  const monthlyPaid = allInstallments.filter(i=>i.status==="PAID"&&(month==="all"?monthKey(i.paid_at?.slice(0,10)??i.due_date)===thisMonth:monthKey(i.paid_at?.slice(0,10)??i.due_date)===month)&&(sourceFilter==="all"||i.expense.payment_source_id===sourceFilter)).reduce((s,i)=>s+Number(i.amount),0);
 
   const filteredExpenses = useMemo(()=>expenses.filter(e=>
     (e.description+" "+(e.supplier??"")+" "+e.category).toLowerCase().includes(search.toLowerCase()) &&
