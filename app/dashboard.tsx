@@ -44,7 +44,8 @@ export default function Dashboard({email}:{email:string}) {
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState("");
   const [success,setSuccess] = useState("");
-  const [showExpense,setShowExpense] = useState(false);\n  const [editingExpense,setEditingExpense] = useState<Expense|null>(null);
+  const [showExpense,setShowExpense] = useState(false);
+  const [editingExpense,setEditingExpense] = useState<Expense|null>(null);
   const [showSource,setShowSource] = useState(false);
   const [description,setDescription] = useState("");
   const [category,setCategory] = useState("Materiais");
